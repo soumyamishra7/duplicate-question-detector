@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>EchoMatch — Do these questions mean the same thing?</title>
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🔁</text></svg>">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;1,9..144,500&family=IBM+Plex+Sans:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="wrap topbar-inner">
+    <div class="brand">
+      <span class="brand-mark" aria-hidden="true">
+        <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+          <path d="M3 7h12a4 4 0 0 1 4 4v1" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+          <path d="M15 8l4 4-4 4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+          <path d="M21 17H9a4 4 0 0 1-4-4v-1" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/>
+          <path d="M9 20l-4-4 4-4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg>
+      </span>
+      EchoMatch
+    </div>
+    <div class="topbar-stat" title="Held-out test accuracy of the trained model">
+      {{ metrics.get('Accuracy', '—') }} test accuracy
+    </div>
+  </div>
+</header>
+
+<main class="wrap">
+
+  <section class="hero">
+    <h1>Do these two questions<br> mean the same thing?</h1>
+    <p class="hero-sub">
+      Paste two questions. EchoMatch reads them the way a careful editor would —
+      comparing shared words, sentence length and surface spelling — and tells you
+      whether a reader would consider them duplicates.
+    </p>
+  </section>
+
+  <section class="panel" aria-label="Question comparison">
+
+    <form id="compare-form" class="form-col">
+      <div class="field">
+        <label for="q1">Question 1</label>
+        <textarea id="q1" name="question1" rows="3" placeholder="e.g. What is the step by step guide to invest in share market in india?" required></textarea>
+        <p class="lang-warning" id="lang-warning-q1" hidden></p>
+      </div>
+      <div class="field">
+        <label for="q2">Question 2</label>
+        <textarea id="q2" name="question2" rows="3" placeholder="e.g. What is the step by step guide to invest in share market?" required></textarea>
+        <p class="lang-warning" id="lang-warning-q2" hidden></p>
+      </div>
+
+      <div class="examples">
+        <span class="examples-label">Try an example</span>
+        <button type="button" class="chip" data-q1="How can I be a good geologist?" data-q2="What should I do to be a great geologist?">Geologist / great geologist</button>
+        <button type="button" class="chip" data-q1="What is the story of Kohinoor (Koh-i-Noor) Diamond?" data-q2="What would happen if the Indian government stole the Kohinoor diamond back?">Kohinoor diamond</button>
+        <button type="button" class="chip" data-q1="Should I buy tiago?" data-q2="What keeps children active and far from phone and video games?">Unrelated pair</button>
+        <button type="button" class="chip" data-q1="How can I improve my Engish speeking skils?" data-q2="What should I do to get better at English?">Typo example</button>
+      </div>
+
+      <label class="checkbox-row">
+        <input type="checkbox" id="fix-typos">
+        Fix obvious typos before comparing
+      </label>
+
+      <button type="submit" class="btn-primary" id="submit-btn">
+        Compare questions
+      </button>
+      <p class="form-error" id="form-error" role="alert" hidden></p>
+    </form>
+
+    <div class="result-col" id="result-col">
+      <div class="result-placeholder" id="result-placeholder">
+        <div class="placeholder-glyph">?</div>
+        <p>Your verdict will appear here — along with the linguistic signals behind it.</p>
+      </div>
+
+      <div class="result-card" id="result-card" hidden>
+        <div class="verdict" id="verdict">
+          <div class="verdict-label" id="verdict-label">—</div>
+          <div class="gauge-wrap">
+            <div class="gauge-track">
+              <div class="gauge-fill" id="gauge-fill"></div>
+            </div>
+            <div class="gauge-value" id="gauge-value">0%</div>
+          </div>
+          <p class="verdict-sub" id="verdict-sub"></p>
+        </div>
+
+        <div class="spelling-note" id="spelling-note" hidden></div>
+
+        <div class="overlap" id="overlap">
+          <h4>Shared words</h4>
+          <p class="overlap-line" id="overlap-q1"></p>
+          <p class="overlap-line" id="overlap-q2"></p>
+        </div>
+
+        <div class="breakdown" id="breakdown"></div>
+      </div>
+    </div>
+
+  </section>
+
+  <section class="secondary-tools">
+    <div class="tool-card">
+      <h3>Batch compare (CSV)</h3>
+      <p class="tool-sub">Upload a CSV with <code>question1</code> and <code>question2</code> columns — same format as the Kaggle dataset — and get a CSV back with probability and label columns added. Up to 500 rows, 2&nbsp;MB.</p>
+      <form id="batch-form">
+        <input type="file" id="batch-file" accept=".csv" required>
+        <button type="submit" class="btn-secondary" id="batch-submit-btn">Upload &amp; compare</button>
+      </form>
+      <p class="tool-status" id="batch-status" hidden></p>
+    </div>
+
+    <div class="tool-card">
+      <div class="tool-card-header">
+        <h3>Recent comparisons</h3>
+        <button type="button" class="link-btn" id="clear-history-btn">Clear</button>
+      </div>
+      <p class="tool-sub">Stored only in your browser — nothing is sent back to the server.</p>
+      <ul class="history-list" id="history-list">
+        <li class="history-empty" id="history-empty">No comparisons yet.</li>
+      </ul>
+    </div>
+  </section>
+
+  <section class="method">
+    <h2>How EchoMatch reads a pair</h2>
+    <div class="method-grid">
+      <div class="method-card">
+        <h3>Length-based</h3>
+        <p>Compares how long each question is and how far apart their word counts fall. Near-identical phrasing tends to produce near-identical lengths.</p>
+      </div>
+      <div class="method-card">
+        <h3>Token-based</h3>
+        <p>Strips common stop-words and measures how many meaningful words the two questions actually share, along with whether they open or close on the same word.</p>
+      </div>
+      <div class="method-card">
+        <h3>Fuzzy matching</h3>
+        <p>Uses the fuzzywuzzy library's ratio, partial-ratio, token-sort and token-set scores to catch reordered words and minor spelling drift.</p>
+      </div>
+      <div class="method-card">
+        <h3>TF-IDF similarity</h3>
+        <p>Compares the two questions as weighted word and character vectors, so rarer, more distinctive words count more than common ones when judging overlap.</p>
+      </div>
+      <div class="method-card">
+        <h3>Learned meaning (Word2Vec)</h3>
+        <p>A word-embedding model trained on the question corpus itself, so two questions can score as similar even when they share almost no exact words — e.g. "lose weight" and "shed pounds".</p>
+      </div>
+    </div>
+    <p class="method-foot">
+      These 25 signals feed a tuned LightGBM classifier trained on the full
+      Quora Question Pairs training set, reaching {{ metrics.get('Accuracy', '—') }} accuracy
+      and {{ metrics.get('ROC AUC', '—') }} ROC&nbsp;AUC on held-out data. The percentage
+      shown above is calibrated, so it reflects a genuine confidence level rather than a raw score.
+    </p>
+    <p class="method-foot">
+      The model was trained on English questions only, so EchoMatch flags
+      (but doesn't block) input it detects as non-English. Typo correction
+      is opt-in and shown transparently — it can occasionally "fix" an
+      unfamiliar proper noun it doesn't recognize, so it's off by default.
+    </p>
+  </section>
+
+</main>
+
+<footer class="site-footer">
+  <div class="wrap">Built for the Quora Question Pairs project · token, length &amp; fuzzy features</div>
+</footer>
+
+<script src="{{ url_for('static', filename='script.js') }}"></script>
+</body>
+</html>
